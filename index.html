@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Band Practice Planner</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: header with language switch, your name, a strip of weekend day chips, then an hours grid of you vs. the band */
+:root {
+  --bg: #f3f4f7; --surface: #ffffff; --fg: #19202b; --muted: #5c6677; --line: #dde1e8;
+  --accent: #3446d4; --accent-fg: #ffffff; --accent-soft: #e6e9fd;
+  --all: #e3f4ea; --all-fg: #17633f;
+  --display: "Bricolage Grotesque", "IBM Plex Sans Thai", "Avenir Next", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "IBM Plex Sans Thai", system-ui, -apple-system, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root {
+  --bg: #12151b; --surface: #1a1f28; --fg: #e8ebf1; --muted: #98a2b4; --line: #2b323e;
+  --accent: #8e9bff; --accent-fg: #10132a; --accent-soft: #232a55;
+  --all: #14291e; --all-fg: #82d7a7; color-scheme: dark;
+} }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.55 var(--body); }
+.wrap {
+  max-width: 760px; margin: 0 auto; display: grid; gap: 20px;
+  padding-block: max(28px, env(safe-area-inset-top, 0px)) max(48px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+header { display: flex; gap: 16px; align-items: start; justify-content: space-between; }
+header > div { min-width: 0; }
+.eyebrow { margin: 0; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+h1 { margin: 2px 0 6px; font: 700 clamp(28px, 6vw, 40px)/1.1 var(--display); text-wrap: balance; }
+.lede { margin: 0; color: var(--muted); max-width: 52ch; }
+.lang { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; flex: 0 0 auto; }
+.lang button { font: 600 13px var(--body); padding: 6px 10px; border: 0; background: var(--surface); color: var(--muted); cursor: pointer; }
+.lang button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+.who { display: grid; gap: 4px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.who input {
+  font: 500 16px var(--body); color: var(--fg); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; width: 280px; max-width: 100%;
+}
+.days { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.day {
+  flex: 0 0 auto; display: grid; justify-items: center; min-width: 58px; position: relative;
+  padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--fg); font: inherit; cursor: pointer;
+}
+.day small { font-size: 11px; color: var(--muted); line-height: 1.3; }
+.day b { font: 600 18px var(--mono); }
+.day .best { font: 500 11px var(--mono); }
+.day.sun { margin-right: 10px; }
+.day.all::after { content: ""; position: absolute; top: 6px; right: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--all-fg); }
+.day[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.day[aria-pressed="true"] small { color: inherit; }
+.summary { display: grid; gap: 6px; }
+.summary h2 { margin: 0; font: 700 22px var(--display); }
+.summary p { margin: 0; }
+.hit { color: var(--all-fg); font-weight: 600; }
+.status { margin: 0; color: var(--muted); min-height: 1.5em; }
+.members { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--muted); }
+.chip { display: inline-flex; align-items: center; gap: 2px; padding: 2px 4px 2px 10px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--fg); font-size: 13px; }
+.chip button { font: 600 12px var(--body); border: 0; background: transparent; color: var(--muted); cursor: pointer; padding: 2px 6px; border-radius: 999px; }
+.chip button.armed { background: var(--accent); color: var(--accent-fg); }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; }
+.tools button, .cell-me {
+  font: 600 13px var(--body); border-radius: 6px; padding: 6px 12px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface); color: var(--fg);
+}
+.grid-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { padding: 6px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+tr:last-child th, tr:last-child td { border-bottom: 0; }
+thead th { font-size: 12px; letter-spacing: .04em; color: var(--muted); padding-block: 10px; }
+tbody th { font: 500 13px var(--mono); color: var(--muted); white-space: nowrap; width: 1%; }
+tr.all td, tr.all th { background: var(--all); }
+td.me { width: 1%; }
+.cell-me { min-width: 64px; }
+.cell-me[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.band { display: grid; gap: 3px; min-width: 0; }
+.band .top { display: flex; align-items: center; gap: 8px; }
+.meter { flex: 1; height: 6px; border-radius: 3px; background: var(--accent-soft); overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--accent); }
+tr.all .meter i { background: var(--all-fg); }
+.band .n { font: 500 12px var(--mono); color: var(--muted); min-width: 3ch; text-align: right; }
+.band .names { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+tr.all .names { color: var(--all-fg); font-weight: 600; }
+.studios { display: grid; gap: 12px; border-top: 1px solid var(--line); padding-top: 24px; margin-top: 8px; }
+.studios h2 { margin: 0; font: 700 22px var(--display); }
+.studio-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.studio-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.studio-list a { color: var(--accent); font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.studio-list .empty { color: var(--muted); background: transparent; border-style: dashed; }
+.studio-list button, .studio-form button {
+  font: 600 13px var(--body); border-radius: 6px; padding: 6px 12px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface); color: var(--muted); flex: 0 0 auto;
+}
+.studio-list button.armed { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.studio-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+.studio-form label { display: grid; gap: 4px; font-size: 13px; font-weight: 600; color: var(--muted); flex: 1 1 200px; min-width: 0; }
+.studio-form input { font: 500 15px var(--body); color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; width: 100%; }
+.studio-form button { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); padding: 10px 16px; font-size: 14px; }
+.search { color: var(--accent); font-weight: 600; justify-self: start; }
+button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button:disabled { cursor: not-allowed; opacity: .5; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <div>
+      <p class="eyebrow" data-t="eyebrow"></p>
+      <h1 data-t="title"></h1>
+      <p class="lede" data-t="lede"></p>
+    </div>
+    <div class="lang" role="group" aria-label="Language">
+      <button id="lang-th" lang="th">ไทย</button>
+      <button id="lang-en" lang="en">EN</button>
+    </div>
+  </header>
+  <label class="who" for="who"><span data-t="nameLabel"></span>
+    <input id="who" maxlength="40" autocomplete="nickname">
+  </label>
+  <nav id="days" class="days"></nav>
+  <section class="summary" aria-live="polite">
+    <h2 id="day-title"></h2>
+    <p id="best"></p>
+    <div id="members" class="members"></div>
+  </section>
+  <p id="status" class="status" role="status"></p>
+  <div class="tools">
+    <button id="all-day" data-t="allDay"></button>
+    <button id="clear-day" data-t="clearDay"></button>
+  </div>
+  <div class="grid-wrap"><table id="grid"></table></div>
+
+  <section class="studios">
+    <h2 data-t="studiosTitle"></h2>
+    <p class="lede" data-t="studiosLede"></p>
+    <ul id="studio-list" class="studio-list"></ul>
+    <form id="studio-form" class="studio-form">
+      <label for="studio-name"><span data-t="studioName"></span>
+        <input id="studio-name" maxlength="80" required>
+      </label>
+      <label for="studio-url"><span data-t="studioUrl"></span>
+        <input id="studio-url" type="url" maxlength="500" required placeholder="https://maps.app.goo.gl/…">
+      </label>
+      <button type="submit" data-t="studioAdd"></button>
+    </form>
+    <p id="studio-status" class="status" role="status"></p>
+    <a id="studio-search" class="search" target="_blank" rel="noopener noreferrer" data-t="studioSearch"></a>
+  </section>
+</main>
+
+<script>
+// From Supabase: Project Settings > API Keys. Use the publishable key (sb_publishable_…) or the legacy "anon public" key (eyJ…), never the secret one.
+// These keys are meant to be public; setup.sql limits what they can do.
+const SUPABASE_URL = ""; // e.g. "https://abcdefghijkl.supabase.co"
+const SUPABASE_ANON_KEY = "";
+
+const OPEN_HOUR = 10, CLOSE_HOUR = 22; // last slot starts at 21:00
+const WEEKENDS = 6;
+const REFRESH_MS = 15000;
+
+const T = {
+  en: {
+    eyebrow: "Band rehearsal", title: "Band Practice Planner",
+    lede: "Type your name, then tap the weekend hours you're free. Green rows are hours when everyone in the band can make it, so you know which slot to book at the studio.",
+    nameLabel: "Your name", namePh: "e.g. Boss (drums)",
+    time: "Time", you: "You", band: "Band", free: "Free", notFree: "—",
+    allDay: "Free all day", clearDay: "Clear this day",
+    everyone: "Everyone free", bestAll: "Everyone free:", bestNone: "No hour yet where everyone is free.",
+    bestSome: n => `Most people free at once: ${n}.`,
+    members: n => n ? `Members (${n}):` : "No one has added their times yet. Type your name and tap the hours you're free.",
+    remove: "Remove", removeConfirm: "Remove?",
+    studiosTitle: "Studios to consider",
+    studiosLede: "Suggest a rehearsal studio for the band. Paste its Google Maps link so everyone can find it.",
+    studioName: "Studio name", studioUrl: "Google Maps link", studioAdd: "Add studio",
+    studiosEmpty: "No studios yet. Add the first one below.",
+    studioBadUrl: "Paste a Google Maps link. It starts with https://maps.app.goo.gl/ or https://www.google.com/maps/.",
+    studioSearch: "Search rehearsal studios in Bangkok on Google Maps", studioQuery: "music rehearsal studio Bangkok",
+    needName: "Type your name first, then tap the hours you're free.",
+    saveErr: "Couldn't save. Check your connection and try again.",
+    loadErr: "Couldn't load the band's times. Check your connection, then reload.",
+    setup: "This page isn't connected to its database yet. Add the Supabase URL and publishable key at the top of the script.",
+    connecting: "Loading the band's times…",
+    locale: "en-GB",
+  },
+  th: {
+    eyebrow: "นัดซ้อมวง", title: "หาเวลาซ้อมวง",
+    lede: "ใส่ชื่อ แล้วแตะช่วงเวลาวันเสาร์-อาทิตย์ที่คุณว่าง แถวสีเขียวคือช่วงที่ทุกคนในวงว่างตรงกัน ใช้ดูว่าควรจองห้องซ้อมช่วงไหน",
+    nameLabel: "ชื่อของคุณ", namePh: "เช่น บอส (กลอง)",
+    time: "เวลา", you: "คุณ", band: "ทั้งวง", free: "ว่าง", notFree: "—",
+    allDay: "ว่างทั้งวัน", clearDay: "ล้างวันนี้",
+    everyone: "ว่างครบทุกคน", bestAll: "ทุกคนว่าง:", bestNone: "ยังไม่มีช่วงที่ทุกคนว่างตรงกัน",
+    bestSome: n => `ว่างพร้อมกันมากที่สุด ${n} คน`,
+    members: n => n ? `สมาชิก (${n}):` : "ยังไม่มีใครใส่เวลา ใส่ชื่อแล้วแตะช่วงเวลาที่คุณว่าง",
+    remove: "ลบ", removeConfirm: "ลบ?",
+    studiosTitle: "ห้องซ้อมที่น่าสนใจ",
+    studiosLede: "เสนอห้องซ้อมให้วง วางลิงก์ Google Maps ไว้ด้วยเพื่อให้ทุกคนหาเจอ",
+    studioName: "ชื่อห้องซ้อม", studioUrl: "ลิงก์ Google Maps", studioAdd: "เพิ่มห้องซ้อม",
+    studiosEmpty: "ยังไม่มีห้องซ้อม เพิ่มห้องแรกด้านล่างได้เลย",
+    studioBadUrl: "ใส่ลิงก์ Google Maps ที่ขึ้นต้นด้วย https://maps.app.goo.gl/ หรือ https://www.google.com/maps/",
+    studioSearch: "ค้นหาห้องซ้อมดนตรีในกรุงเทพฯ บน Google Maps", studioQuery: "ห้องซ้อมดนตรี กรุงเทพ",
+    needName: "ใส่ชื่อก่อน แล้วแตะช่วงเวลาที่คุณว่าง",
+    saveErr: "บันทึกไม่สำเร็จ ตรวจสอบอินเทอร์เน็ตแล้วลองอีกครั้ง",
+    loadErr: "โหลดเวลาของสมาชิกไม่สำเร็จ ตรวจสอบอินเทอร์เน็ตแล้วโหลดหน้าใหม่",
+    setup: "หน้านี้ยังไม่ได้เชื่อมฐานข้อมูล ใส่ Supabase URL และ publishable key ที่ส่วนบนของสคริปต์",
+    connecting: "กำลังโหลดเวลาของสมาชิก…",
+    locale: "th-TH",
+  },
+};
+
+const pad = n => String(n).padStart(2, "0");
+const dayKey = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const parseDay = key => new Date(key + "T00:00:00");
+const HOURS = Array.from({ length: CLOSE_HOUR - OPEN_HOUR }, (_, i) => OPEN_HOUR + i);
+const hourLabel = h => `${pad(h)}:00–${pad(h + 1)}:00`;
+// Same pattern as the check in setup.sql; also keeps javascript: and other sites out of the links.
+const MAPS_URL = /^https:\/\/(maps\.app\.goo\.gl|goo\.gl\/maps|(www\.)?google\.[a-z.]+\/maps|maps\.google\.[a-z.]+)\//i;
+console.assert(MAPS_URL.test("https://maps.app.goo.gl/abc") && MAPS_URL.test("https://www.google.co.th/maps/place/x") && !MAPS_URL.test("javascript:alert(1)") && !MAPS_URL.test("https://evil.com/maps/"), "MAPS_URL accepts only Google Maps links");
+// One row per name, so a member's phone and laptop edit the same times.
+const memberId = name => name.trim().toLowerCase();
+
+function weekendDays() {
+  const out = [], now = new Date();
+  for (let i = 0; out.length < WEEKENDS * 2 && i < WEEKENDS * 7 + 7; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+    if (d.getDay() === 6 || d.getDay() === 0) out.push(d);
+  }
+  return out;
+}
+
+// Merge consecutive hours into ranges: [13,14,15,18] -> "13:00–16:00, 18:00–19:00"
+function ranges(hours) {
+  const out = [];
+  for (const h of hours) {
+    const last = out[out.length - 1];
+    if (last && last[1] === h) last[1] = h + 1; else out.push([h, h + 1]);
+  }
+  return out.map(([a, b]) => `${pad(a)}:00–${pad(b)}:00`).join(", ");
+}
+console.assert(ranges([13, 14, 15, 18]) === "13:00–16:00, 18:00–19:00", "ranges merges consecutive hours");
+
+const api = (path, init = {}) => fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+  ...init,
+  headers: {
+    apikey: SUPABASE_ANON_KEY,
+    // only the legacy key is a JWT; Supabase rejects a publishable key sent as a Bearer token
+    ...(SUPABASE_ANON_KEY.startsWith("eyJ") && { Authorization: `Bearer ${SUPABASE_ANON_KEY}` }),
+    "Content-Type": "application/json",
+    ...init.headers,
+  },
+}).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r; });
+
+const $ = id => document.getElementById(id);
+const who = $("who");
+const DAYS = weekendDays().map(dayKey);
+const store = {
+  get: k => { try { return localStorage.getItem(k); } catch { return null; } },
+  set: (k, v) => { try { localStorage.setItem(k, v); } catch {} },
+};
+let lang = store.get("lang") || (navigator.language.startsWith("th") ? "th" : "en");
+let selected = DAYS[0];
+let loaded = false;
+let people = new Map(); // memberId -> { name, days: { "YYYY-MM-DD": [hours] } }
+let mine = { name: "", days: {} };
+let studios = []; // { id, name, maps_url }
+let saveTimer = null, pendingRow = null, saveChain = Promise.resolve();
+let armed = null; // member id awaiting a second click on "Remove"
+let statusKey = "connecting";
+
+const t = () => T[lang];
+const setStatus = key => { statusKey = key; $("status").textContent = key ? t()[key] : ""; };
+
+function everyone() {
+  const all = new Map(people);
+  if (mine.name) all.set(memberId(mine.name), mine);
+  // a member counts once they've marked at least one hour
+  return [...all.values()].filter(p => p.name?.trim() && Object.values(p.days || {}).some(h => h.length));
+}
+
+function freeAt(list, date, hour) {
+  return list.filter(p => (p.days?.[date] || []).includes(hour));
+}
+
+function render() {
+  const L = t();
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-t]").forEach(el => { el.textContent = L[el.dataset.t]; });
+  who.placeholder = L.namePh;
+  $("lang-th").setAttribute("aria-pressed", String(lang === "th"));
+  $("lang-en").setAttribute("aria-pressed", String(lang === "en"));
+  $("status").textContent = statusKey ? L[statusKey] : "";
+
+  const list = everyone();
+  const m = list.length;
+
+  const nav = $("days");
+  nav.replaceChildren();
+  for (const key of DAYS) {
+    const d = parseDay(key);
+    const best = Math.max(0, ...HOURS.map(h => freeAt(list, key, h).length));
+    const b = document.createElement("button");
+    b.className = "day" + (d.getDay() === 0 ? " sun" : "") + (m && best === m ? " all" : "");
+    b.setAttribute("aria-pressed", String(key === selected));
+    b.setAttribute("aria-label", d.toLocaleDateString(L.locale, { weekday: "long", day: "numeric", month: "long" }));
+    b.innerHTML = `<small>${d.toLocaleDateString(L.locale, { weekday: "short" })}</small><b>${d.getDate()}</b><small>${d.toLocaleDateString(L.locale, { month: "short" })}</small><span class="best">${m ? `${best}/${m}` : "&nbsp;"}</span>`;
+    b.onclick = () => { selected = key; render(); };
+    nav.append(b);
+  }
+
+  $("day-title").textContent = parseDay(selected).toLocaleDateString(L.locale, { weekday: "long", day: "numeric", month: "long" });
+  const allHours = m ? HOURS.filter(h => freeAt(list, selected, h).length === m) : [];
+  const bestCount = Math.max(0, ...HOURS.map(h => freeAt(list, selected, h).length));
+  const best = $("best");
+  best.className = allHours.length ? "hit" : "";
+  best.textContent = allHours.length ? `${L.bestAll} ${ranges(allHours)}` : m && bestCount ? `${L.bestNone} ${L.bestSome(bestCount)}` : "";
+  const mem = $("members");
+  mem.replaceChildren(Object.assign(document.createElement("span"), { textContent: L.members(m) }));
+  for (const p of list) {
+    const id = memberId(p.name);
+    const chip = Object.assign(document.createElement("span"), { className: "chip", textContent: p.name.trim() });
+    const x = document.createElement("button");
+    x.textContent = armed === id ? L.removeConfirm : "×";
+    x.className = armed === id ? "armed" : "";
+    x.setAttribute("aria-label", `${L.remove} ${p.name.trim()}`);
+    x.onclick = () => armed === id ? removeMember(id) : (armed = id, render());
+    chip.append(x);
+    mem.append(chip);
+  }
+
+  $("all-day").disabled = $("clear-day").disabled = !loaded;
+
+  $("studio-search").href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(L.studioQuery)}`;
+  $("studio-form").querySelector("button").disabled = !loaded;
+  const sl = $("studio-list");
+  sl.replaceChildren();
+  if (!studios.length) sl.append(Object.assign(document.createElement("li"), { className: "empty", textContent: L.studiosEmpty }));
+  for (const s of studios) {
+    const li = document.createElement("li");
+    const a = Object.assign(document.createElement("a"), { textContent: s.name, target: "_blank", rel: "noopener noreferrer" });
+    if (MAPS_URL.test(s.maps_url)) a.href = s.maps_url;
+    const key = `studio:${s.id}`;
+    const x = document.createElement("button");
+    x.textContent = armed === key ? L.removeConfirm : L.remove;
+    x.className = armed === key ? "armed" : "";
+    x.setAttribute("aria-label", `${L.remove} ${s.name}`);
+    x.onclick = () => armed === key ? removeStudio(s.id) : (armed = key, render());
+    li.append(a, x);
+    sl.append(li);
+  }
+
+  const table = $("grid");
+  table.replaceChildren();
+  const head = table.createTHead().insertRow();
+  for (const k of ["time", "you", "band"]) head.append(Object.assign(document.createElement("th"), { textContent: L[k] }));
+  const body = table.createTBody();
+  const myHours = mine.days[selected] || [];
+  for (const hour of HOURS) {
+    const tr = body.insertRow();
+    const free = freeAt(list, selected, hour);
+    if (m && free.length === m) tr.className = "all";
+    tr.append(Object.assign(document.createElement("th"), { textContent: hourLabel(hour), scope: "row" }));
+
+    const on = myHours.includes(hour);
+    const btn = document.createElement("button");
+    btn.className = "cell-me";
+    btn.textContent = on ? L.free : L.notFree;
+    btn.setAttribute("aria-pressed", String(on));
+    btn.setAttribute("aria-label", `${L.free} ${hourLabel(hour)}`);
+    btn.disabled = !loaded;
+    btn.onclick = () => toggle(hour);
+    const tdMe = tr.insertCell();
+    tdMe.className = "me";
+    tdMe.append(btn);
+
+    const band = document.createElement("div");
+    band.className = "band";
+    const top = document.createElement("div");
+    top.className = "top";
+    const meter = document.createElement("span");
+    meter.className = "meter";
+    meter.innerHTML = `<i style="width:${m ? (free.length / m) * 100 : 0}%"></i>`;
+    top.append(meter, Object.assign(document.createElement("span"), { className: "n", textContent: `${free.length}/${m}` }));
+    const names = free.length === m && m ? `${L.everyone} · ${free.map(p => p.name.trim()).join(", ")}` : free.map(p => p.name.trim()).join(", ");
+    band.append(top, Object.assign(document.createElement("span"), { className: "names", textContent: names }));
+    tr.insertCell().append(band);
+  }
+}
+
+function setHours(date, hours) {
+  if (!who.value.trim()) { who.focus(); setStatus("needName"); return; }
+  mine = { name: who.value.trim(), days: { ...mine.days, [date]: [...hours].sort((a, b) => a - b) } };
+  if (!hours.length) delete mine.days[date];
+  if (statusKey === "needName") setStatus("");
+  render();
+  scheduleSave();
+}
+
+function toggle(hour) {
+  const cur = mine.days[selected] || [];
+  setHours(selected, cur.includes(hour) ? cur.filter(h => h !== hour) : [...cur, hour]);
+}
+
+// Coalesce taps into one write per pause, and never overlap writes to the same row.
+function scheduleSave() {
+  const today = dayKey(new Date());
+  pendingRow = {
+    id: memberId(mine.name),
+    name: mine.name,
+    days: Object.fromEntries(Object.entries(mine.days).filter(([k]) => k >= today)),
+    updated_at: new Date().toISOString(),
+  };
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flush, 600);
+}
+
+function flush() {
+  clearTimeout(saveTimer);
+  if (!pendingRow) return;
+  const row = pendingRow;
+  pendingRow = null;
+  saveChain = saveChain
+    .then(() => api("availability", { method: "POST", headers: { Prefer: "resolution=merge-duplicates" }, body: JSON.stringify(row) }))
+    .then(() => { if (statusKey === "saveErr") setStatus(""); })
+    .catch(() => setStatus("saveErr"));
+}
+
+async function removeMember(id) {
+  armed = null;
+  if (pendingRow?.id === id) { clearTimeout(saveTimer); pendingRow = null; }
+  await saveChain;
+  try {
+    await api(`availability?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" });
+    people.delete(id);
+    if (mine.name && memberId(mine.name) === id) mine = { name: mine.name, days: {} };
+  } catch {
+    setStatus("saveErr");
+  }
+  render();
+}
+
+const setStudioStatus = text => { $("studio-status").textContent = text; };
+
+$("studio-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const name = $("studio-name").value.trim();
+  const maps_url = $("studio-url").value.trim();
+  if (!name) return $("studio-name").focus();
+  if (!MAPS_URL.test(maps_url)) { setStudioStatus(t().studioBadUrl); return $("studio-url").focus(); }
+  try {
+    const [row] = await (await api("studios?select=id,name,maps_url", {
+      method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify({ name, maps_url }),
+    })).json();
+    studios = [...studios, row];
+    e.target.reset();
+    setStudioStatus("");
+  } catch {
+    setStudioStatus(t().saveErr);
+  }
+  render();
+});
+
+async function removeStudio(id) {
+  armed = null;
+  try {
+    await api(`studios?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" });
+    studios = studios.filter(s => s.id !== id);
+  } catch {
+    setStudioStatus(t().saveErr);
+  }
+  render();
+}
+
+async function refresh() {
+  try {
+    const [rows, studioRows] = await Promise.all([
+      api("availability?select=id,name,days").then(r => r.json()),
+      api("studios?select=id,name,maps_url&order=created_at").then(r => r.json()),
+    ]);
+    studios = studioRows;
+    people = new Map(rows.map(r => [r.id, { name: r.name, days: r.days || {} }]));
+    const myId = mine.name && memberId(mine.name);
+    if (!loaded && myId && people.has(myId)) mine = structuredClone(people.get(myId));
+    if (myId) people.delete(myId);
+    loaded = true;
+    if (statusKey === "connecting" || statusKey === "loadErr") setStatus("");
+  } catch {
+    setStatus("loadErr");
+  }
+  render();
+}
+
+// Switching to a name that already has times loads them; the previous name's times stay saved under it.
+who.addEventListener("change", () => {
+  const name = who.value.trim();
+  store.set("who", name);
+  if (!name || !loaded) return;
+  flush();
+  const prev = mine.name && memberId(mine.name);
+  if (prev && prev !== memberId(name)) people.set(prev, mine);
+  const existing = people.get(memberId(name));
+  people.delete(memberId(name));
+  mine = { name, days: existing ? structuredClone(existing.days) : {} };
+  render();
+});
+
+$("lang-th").onclick = () => { lang = "th"; store.set("lang", lang); render(); };
+$("lang-en").onclick = () => { lang = "en"; store.set("lang", lang); render(); };
+$("all-day").onclick = () => setHours(selected, HOURS);
+$("clear-day").onclick = () => setHours(selected, []);
+
+who.value = store.get("who") || "";
+mine.name = who.value.trim();
+render();
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  setStatus("setup");
+} else {
+  refresh();
+  setInterval(() => { if (!document.hidden) refresh(); }, REFRESH_MS);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+}
+</script>
+</body>
+</html>
